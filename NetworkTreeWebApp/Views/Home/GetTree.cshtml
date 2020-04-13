@@ -1,0 +1,25 @@
+@model string
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<h2 class="display-4">Accounts tree</h2>
+@if(ViewData["total"] != null)
+{
+    <h4>for @ViewData["total"] accounts, starting at @ViewData["first"]</h4>
+}
+<div id="tree">
+
+</div>
+
+@section Scripts{
+    <script type="text/javascript" src="~/lib/bootstrap-treeview-1.2.0/dist/bootstrap-treeview.min.js"></script>
+    <script>
+        $(function() {
+            var tree = @Html.Raw(Model);
+            console.log(tree);
+
+            $('#tree').treeview({data: [tree], levels: 20});
+        });
+    </script>
+}

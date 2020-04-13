@@ -1,0 +1,27 @@
+﻿@model System.Collections.Generic.IList<NetworkTreeWebApp.Data.Account>
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<h1 class="display-4">Accounts</h1>
+<div>
+    <form asp-action="Index" method="POST">
+        <label>Add accounts</label>
+        <input type="number" id="num-input" name="number" />
+        <input type="text" id="prefix-input" name="prefix" />
+        <input type="submit" />
+    </form>
+</div>
+<div>
+    @if(Model.Count > 0)
+    {
+        <h4>Stats</h4>
+        <p>Total accounts: @Model.Count</p>
+        <p>First: (id)@Model[0].Id -- (name)@Model[0].Name -- (parent)@Model[0].ParentId --</p>
+        <p>Last: (id)@Model[Model.Count-1].Id -- (name)@Model[Model.Count-1].Name -- (parent)@Model[Model.Count-1].ParentId</p>
+    }
+</div>
+
+@section Scripts{
+    <script type="text/javascript" src="~/lib/bootstrap-treeview-1.2.0/dist/bootstrap-treeview.min.js"></script>
+}
