@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
+using Microsoft.SqlServer.Types;
 
 namespace NetworkTreeWebApp.Data
 {
@@ -21,6 +22,7 @@ namespace NetworkTreeWebApp.Data
         }
 
         public DbSet<Account> Accounts { get; set; }
+        public DbSet<AccountHierarchy> AccountHierarchies { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -43,26 +45,53 @@ namespace NetworkTreeWebApp.Data
                     .HasMaxLength(50)
                     .IsUnicode(false);
 
-                entity.HasOne(d => d.Parent)
-                    .WithMany(p => p.Children)
+                entity.HasMany(d => d.Children)
+                    .WithOne()
                     .HasForeignKey(d => d.ParentId)
                     .HasConstraintName("FK_Account_Self_ParentId");
+                
+                entity.HasMany(d => d.Downlinks)
+                    .WithOne()
+                    .HasForeignKey(d => d.UplinkId)
+                    .HasConstraintName("FK_Account_Self_UplinkId");
             });
             modelBuilder.Entity<Account>().HasData(
-                new List<Account>()
-                {
-                    new Account(){ Id = 1, Name = "A", PlacementPreference = 3, ParentId = null },
-                    new Account(){ Id = 2, Name = "B", PlacementPreference = 3, ParentId = 1 },
-                    new Account(){ Id = 3, Name = "C", PlacementPreference = 3, ParentId = 1 },
-                    new Account(){ Id = 4, Name = "D", PlacementPreference = 3, ParentId = 2 },
-                    new Account(){ Id = 5, Name = "H", PlacementPreference = 3, ParentId = 3 },
-                    new Account(){ Id = 6, Name = "K", PlacementPreference = 3, ParentId = 3 },
-                    new Account(){ Id = 7, Name = "F", PlacementPreference = 3, ParentId = 2 },
-                    new Account(){ Id = 8, Name = "G", PlacementPreference = 3, ParentId = 4 },
-                    new Account(){ Id = 9, Name = "V", PlacementPreference = 3, ParentId = 4 },
-                    new Account(){ Id = 10, Name = "L", PlacementPreference = 3, ParentId = 6 },
-                }
+                    new Account(){ Id = 1, Name = "A", PlacementPreference = 3, ParentId = null, UplinkId = null },
+                    new Account(){ Id = 2, Name = "B", PlacementPreference = 2, ParentId = 1, UplinkId = 1 },
+                    new Account(){ Id = 3, Name = "C", PlacementPreference = 3, ParentId = 1, UplinkId = 1 },
+                    new Account(){ Id = 4, Name = "D", PlacementPreference = 3, ParentId = 2, UplinkId = 1 },
+                    new Account(){ Id = 5, Name = "H", PlacementPreference = 1, ParentId = 3, UplinkId = 1 },
+                    new Account(){ Id = 6, Name = "K", PlacementPreference = 3, ParentId = 3, UplinkId = 1 },
+                    new Account(){ Id = 7, Name = "F", PlacementPreference = 2, ParentId = 2, UplinkId = 1 },
+                    new Account(){ Id = 8, Name = "G", PlacementPreference = 3, ParentId = 4, UplinkId = 1 },
+                    new Account(){ Id = 9, Name = "V", PlacementPreference = 3, ParentId = 4, UplinkId = 1 },
+                    new Account(){ Id = 10, Name = "L", PlacementPreference = 3, ParentId = 6, UplinkId = 1 },
+                    new Account(){ Id = 11, Name = "Q", PlacementPreference = 3, ParentId = 7, UplinkId = 2 },
+                    new Account(){ Id = 12, Name = "X", PlacementPreference = 1, ParentId = 11, UplinkId = 2 },
+                    new Account(){ Id = 13, Name = "Y", PlacementPreference = 2, ParentId = 11, UplinkId = 2 }
             );
+
+            modelBuilder.Entity<AccountHierarchy>(entity =>
+            {
+                entity.ToTable("AccountHierarchy");
+                entity.Property(e => e.Id).HasColumnName("Id").ValueGeneratedOnAdd();
+                entity.HasIndex(e => e.ParentId);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .IsUnicode(false);
+
+                entity.HasMany(d => d.Children)
+                    .WithOne()
+                    .HasForeignKey(d => d.ParentId)
+                    .HasConstraintName("FK_AccountHierarchy_Self_ParentId");
+                
+                entity.HasMany(d => d.Downlinks)
+                    .WithOne()
+                    .HasForeignKey(d => d.UplinkId)
+                    .HasConstraintName("FK_AccountHierarchy_Self_UplinkId");
+            });
 
             OnModelCreatingPartial(modelBuilder);
         }

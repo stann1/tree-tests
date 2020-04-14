@@ -7,7 +7,8 @@ namespace NetworkTreeWebApp.Data
     {
         public Account()
         {
-            Children = new HashSet<Account>();
+            Children = new List<Account>();
+            Downlinks = new List<Account>();
         }
 
         public long Id { get; set; }
@@ -15,8 +16,9 @@ namespace NetworkTreeWebApp.Data
         public int PlacementPreference { get; set; }
         public int Leg { get; set; }
         public long? ParentId { get; set; }
+        public long? UplinkId { get; set; }
 
-        public virtual Account Parent { get; set; }
-        public virtual ICollection<Account> Children { get; set; }
+        public  List<Account> Children { get; set; }
+        public List<Account> Downlinks { get; set; }
     }
 }

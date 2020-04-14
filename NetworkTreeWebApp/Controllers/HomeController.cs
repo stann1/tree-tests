@@ -35,15 +35,31 @@ namespace NetworkTreeWebApp.Controllers
         public async Task<IActionResult> Index(int number, string prefix)
         {
             System.Console.WriteLine("Adding number of accounts: " + number);
-            var dataSeeder = new DataSeeder(_dbContext);
+            var dataSeeder = new AccountRepository(_dbContext);
             await dataSeeder.Seed(number, prefix);
             System.Console.WriteLine("Done.");
             return RedirectToAction("Index");
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CreateAccount(int sponsorId, string name, int placement)
+        {
+            var repo = new AccountRepository(_dbContext);
+            var newAccount = new Account
+            {
+                Name = name,
+                PlacementPreference = placement,
+                UplinkId = sponsorId
+            };
+
+            await repo.AddNode(newAccount);
+
+            return RedirectToAction("Index");
+        }
+
         public async Task<IActionResult> GetTree()
         {
-            var accounts = await _dbContext.Accounts.ToListAsync();
+            var accounts = await _dbContext.Accounts.OrderBy(a => a.Id).ToListAsync();
 
             // var accounts = new List<Account>()
             // {
@@ -58,7 +74,9 @@ namespace NetworkTreeWebApp.Controllers
             //     new Account(){ Id = 9, Name = "V", TreePlacement = 1, ParentId = 4 },
             //     new Account(){ Id = 10, Name = "L", TreePlacement = 1, ParentId = 6 },
             // };
-            var account = TreeBuilder.BuildTree(accounts);
+            Account root = accounts[0];
+            TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
+            var account = treeBuilder.BuildTreeInMemory(root, accounts.Skip(1).ToList());
 
             DefaultContractResolver contractResolver = new DefaultContractResolver
             {
@@ -73,13 +91,34 @@ namespace NetworkTreeWebApp.Controllers
             return View("GetTree", json);
         }
 
+        public async Task<IActionResult> GetTreeSql()
+        {
+            var repo = new AccountRepository(_dbContext);
+            Account root = await _dbContext.Accounts.OrderBy(a => a.Id).FirstOrDefaultAsync();
+
+            TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
+            AccountDto tree = await treeBuilder.BuildTreeInDbRecursive(root.Id);
+
+            DefaultContractResolver contractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy()
+            };
+            string json = JsonConvert.SerializeObject(tree, new JsonSerializerSettings
+            {
+                ContractResolver = contractResolver,
+                Formatting = Formatting.Indented
+            });
+            //Console.WriteLine(json);
+            return View("GetTree", json);
+        }
+
         public async Task<IActionResult> GetRandomTree()
         {
             var total = await _dbContext.Accounts.CountAsync();
             var rand = new Random();
-
+            
             var randAccounts = await _dbContext.Accounts.OrderBy(a => a.Id).Skip(rand.Next(1, total)).ToListAsync();
-
+            Account root = randAccounts[0];
             // var accounts = new List<Account>()
             // {
             //     new Account(){ Id = 1, Name = "A", TreePlacement = 1, ParentId = null },
@@ -93,7 +132,8 @@ namespace NetworkTreeWebApp.Controllers
             //     new Account(){ Id = 9, Name = "V", TreePlacement = 1, ParentId = 4 },
             //     new Account(){ Id = 10, Name = "L", TreePlacement = 1, ParentId = 6 },
             // };
-            var account = TreeBuilder.BuildTree(randAccounts);
+            TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
+            var account = treeBuilder.BuildTreeInMemory(root, randAccounts.Skip(1).ToList());
 
             DefaultContractResolver contractResolver = new DefaultContractResolver
             {

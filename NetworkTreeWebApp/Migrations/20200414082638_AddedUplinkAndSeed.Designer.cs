@@ -3,16 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.SqlServer.Types;
 using NetworkTreeWebApp.Data;
 
 namespace NetworkTreeWebApp.Migrations
 {
     [DbContext(typeof(AccountsContext))]
-    partial class AccountsContextModelSnapshot : ModelSnapshot
+    [Migration("20200414082638_AddedUplinkAndSeed")]
+    partial class AddedUplinkAndSeed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -68,7 +69,7 @@ namespace NetworkTreeWebApp.Migrations
                             Leg = 0,
                             Name = "B",
                             ParentId = 1L,
-                            PlacementPreference = 2,
+                            PlacementPreference = 3,
                             UplinkId = 1L
                         },
                         new
@@ -95,7 +96,7 @@ namespace NetworkTreeWebApp.Migrations
                             Leg = 0,
                             Name = "H",
                             ParentId = 3L,
-                            PlacementPreference = 1,
+                            PlacementPreference = 3,
                             UplinkId = 1L
                         },
                         new
@@ -113,7 +114,7 @@ namespace NetworkTreeWebApp.Migrations
                             Leg = 0,
                             Name = "F",
                             ParentId = 2L,
-                            PlacementPreference = 2,
+                            PlacementPreference = 3,
                             UplinkId = 1L
                         },
                         new
@@ -149,7 +150,7 @@ namespace NetworkTreeWebApp.Migrations
                             Leg = 0,
                             Name = "Q",
                             ParentId = 7L,
-                            PlacementPreference = 3,
+                            PlacementPreference = 2,
                             UplinkId = 2L
                         },
                         new
@@ -158,7 +159,7 @@ namespace NetworkTreeWebApp.Migrations
                             Leg = 0,
                             Name = "X",
                             ParentId = 11L,
-                            PlacementPreference = 1,
+                            PlacementPreference = 2,
                             UplinkId = 2L
                         },
                         new
@@ -172,78 +173,17 @@ namespace NetworkTreeWebApp.Migrations
                         });
                 });
 
-            modelBuilder.Entity("NetworkTreeWebApp.Data.AccountHierarchy", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnName("Id")
-                        .HasColumnType("bigint")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
-
-                    b.Property<int>("Leg")
-                        .HasColumnType("int");
-
-                    b.Property<SqlHierarchyId>("Level")
-                        .HasColumnType("hierarchyid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("varchar(50)")
-                        .HasMaxLength(50)
-                        .IsUnicode(false);
-
-                    b.Property<long?>("ParentId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("PlacementPreference")
-                        .HasColumnType("int");
-
-                    b.Property<long?>("UplinkId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.HasIndex("UplinkId");
-
-                    b.ToTable("AccountHierarchy");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1L,
-                            Leg = 0,
-                            Level = Microsoft.SqlServer.Types.SqlHierarchyId.Parse(new System.Data.SqlTypes.SqlString("/")),
-                            Name = "A",
-                            PlacementPreference = 3
-                        });
-                });
-
             modelBuilder.Entity("NetworkTreeWebApp.Data.Account", b =>
                 {
-                    b.HasOne("NetworkTreeWebApp.Data.Account", null)
+                    b.HasOne("NetworkTreeWebApp.Data.Account", "Parent")
                         .WithMany("Children")
                         .HasForeignKey("ParentId")
                         .HasConstraintName("FK_Account_Self_ParentId");
 
-                    b.HasOne("NetworkTreeWebApp.Data.Account", null)
+                    b.HasOne("NetworkTreeWebApp.Data.Account", "Uplink")
                         .WithMany("Downlinks")
                         .HasForeignKey("UplinkId")
                         .HasConstraintName("FK_Account_Self_UplinkId");
-                });
-
-            modelBuilder.Entity("NetworkTreeWebApp.Data.AccountHierarchy", b =>
-                {
-                    b.HasOne("NetworkTreeWebApp.Data.AccountHierarchy", null)
-                        .WithMany("Children")
-                        .HasForeignKey("ParentId")
-                        .HasConstraintName("FK_AccountHierarchy_Self_ParentId");
-
-                    b.HasOne("NetworkTreeWebApp.Data.AccountHierarchy", null)
-                        .WithMany("Downlinks")
-                        .HasForeignKey("UplinkId")
-                        .HasConstraintName("FK_AccountHierarchy_Self_UplinkId");
                 });
 #pragma warning restore 612, 618
         }

@@ -13,6 +13,15 @@
     </form>
 </div>
 <div>
+    <form asp-action="CreateAccount" method="POST">
+        <p>Add single</p>
+        <input type="number" id="sp-input" name="sponsorId", placeholder="Sponsor ID" />
+        <input type="text" id="nm-input" name="name" placeholder="Account name" />
+        <input type="number" id="pref-input" name="placement" placeholder="Placement preference" />
+        <input type="submit" />
+    </form>
+</div>
+<div>
     @if(Model.Count > 0)
     {
         <h4>Stats</h4>
