@@ -19,9 +19,20 @@ namespace NetworkTreeWebApp.Data
         public long? ParentId { get; set; }
         public long? UplinkId { get; set; }
 
-        public SqlHierarchyId Level { get; set; }
+        public string LevelPath { get; set; }
 
         public  List<AccountHierarchy> Children { get; set; }
         public List<AccountHierarchy> Downlinks { get; set; }
+
+        public string GetParent()
+        {
+            var lastIndex = this.LevelPath.LastIndexOf("/");
+            if(lastIndex == 0)
+            {
+                return "/";
+            }
+
+            return this.LevelPath.Substring(0, lastIndex);
+        }
     }
 }

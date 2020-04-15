@@ -42,7 +42,17 @@ namespace NetworkTreeWebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAccount(int sponsorId, string name, int placement)
+        public async Task<IActionResult> CreateHierarchyMulti(int number, string prefix)
+        {
+            System.Console.WriteLine("Adding number of accounts: " + number);
+            var dataSeeder = new HierarchyRepository(_dbContext);
+            await dataSeeder.SeedMultiple(number, prefix);
+            System.Console.WriteLine("Done.");
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateAccount(int? sponsorId, string name, int placement)
         {
             var repo = new AccountRepository(_dbContext);
             var newAccount = new Account
@@ -51,8 +61,26 @@ namespace NetworkTreeWebApp.Controllers
                 PlacementPreference = placement,
                 UplinkId = sponsorId
             };
-
+            
             await repo.AddNode(newAccount);
+
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateHierarchy(int? sponsorId, string name, int placement)
+        {
+            var newAccountHierarchy = new AccountHierarchy
+            {
+                Name = name,
+                PlacementPreference = placement,
+                UplinkId = sponsorId,
+                ParentId = sponsorId
+            };
+            var hierarchyRepo = new HierarchyRepository(_dbContext);
+
+            var entity = await hierarchyRepo.AddToParent(newAccountHierarchy, sponsorId);
+            System.Console.WriteLine($"Created hierarchy: {entity.Name}, level: {entity.LevelPath}");
 
             return RedirectToAction("Index");
         }
@@ -61,19 +89,6 @@ namespace NetworkTreeWebApp.Controllers
         {
             var accounts = await _dbContext.Accounts.OrderBy(a => a.Id).ToListAsync();
 
-            // var accounts = new List<Account>()
-            // {
-            //     new Account(){ Id = 1, Name = "A", TreePlacement = 1, ParentId = null },
-            //     new Account(){ Id = 2, Name = "B", TreePlacement = 1, ParentId = 1 },
-            //     new Account(){ Id = 3, Name = "C", TreePlacement = 1, ParentId = 1 },
-            //     new Account(){ Id = 4, Name = "D", TreePlacement = 1, ParentId = 2 },
-            //     new Account(){ Id = 5, Name = "H", TreePlacement = 1, ParentId = 3 },
-            //     new Account(){ Id = 6, Name = "K", TreePlacement = 1, ParentId = 3 },
-            //     new Account(){ Id = 7, Name = "F", TreePlacement = 1, ParentId = 2 },
-            //     new Account(){ Id = 8, Name = "G", TreePlacement = 1, ParentId = 4 },
-            //     new Account(){ Id = 9, Name = "V", TreePlacement = 1, ParentId = 4 },
-            //     new Account(){ Id = 10, Name = "L", TreePlacement = 1, ParentId = 6 },
-            // };
             Account root = accounts[0];
             TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
             var account = treeBuilder.BuildTreeInMemory(root, accounts.Skip(1).ToList());

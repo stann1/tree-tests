@@ -93,6 +93,19 @@ namespace NetworkTreeWebApp.Data
                     .HasConstraintName("FK_AccountHierarchy_Self_UplinkId");
             });
 
+            modelBuilder.Entity<AccountHierarchy>().HasData(
+                    new AccountHierarchy(){ Id = 1, Name = "A", PlacementPreference = 3, ParentId = null, UplinkId = null, LevelPath = "/" }
+                    // new AccountHierarchy(){ Id = 2, Name = "B", PlacementPreference = 2, ParentId = 1, UplinkId = 1, LevelPath = "/1" },
+                    // new AccountHierarchy(){ Id = 3, Name = "C", PlacementPreference = 3, ParentId = 1, UplinkId = 1, LevelPath = "/2" },
+                    // new AccountHierarchy(){ Id = 4, Name = "D", PlacementPreference = 3, ParentId = 2, UplinkId = 1, LevelPath = "/1/1" },
+                    // new AccountHierarchy(){ Id = 5, Name = "H", PlacementPreference = 1, ParentId = 3, UplinkId = 1, LevelPath = "/2/1" },
+                    // new AccountHierarchy(){ Id = 6, Name = "K", PlacementPreference = 3, ParentId = 3, UplinkId = 1, LevelPath = "/2/2" },
+                    // new AccountHierarchy(){ Id = 7, Name = "F", PlacementPreference = 2, ParentId = 2, UplinkId = 1, LevelPath = "/1/2" },
+                    // new AccountHierarchy(){ Id = 8, Name = "G", PlacementPreference = 3, ParentId = 4, UplinkId = 1, LevelPath = "/1/1/1" },
+                    // new AccountHierarchy(){ Id = 9, Name = "V", PlacementPreference = 3, ParentId = 4, UplinkId = 1, LevelPath = "/1/1/2" },
+                    // new AccountHierarchy(){ Id = 10, Name = "L", PlacementPreference = 3, ParentId = 6, UplinkId = 1, LevelPath = "/2/2/1" }
+            );
+
             OnModelCreatingPartial(modelBuilder);
         }
 

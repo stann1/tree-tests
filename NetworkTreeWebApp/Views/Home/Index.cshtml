@@ -5,19 +5,37 @@
 
 <h1 class="display-4">Accounts</h1>
 <div>
-    <form asp-action="Index" method="POST">
-        <label>Add accounts</label>
+    <form class="form" asp-action="Index" method="POST">
+        <label>Add multiple standard</label>
         <input type="number" id="num-input" name="number" />
         <input type="text" id="prefix-input" name="prefix" />
         <input type="submit" />
     </form>
 </div>
 <div>
-    <form asp-action="CreateAccount" method="POST">
-        <p>Add single</p>
+    <form class="form" asp-action="CreateHierarchyMulti" method="POST">
+        <label>Add multiple hierarchy</label>
+        <input type="number" id="h-num-input" name="number" />
+        <input type="text" id="h-prefix-input" name="prefix" />
+        <input type="submit" />
+    </form>
+</div>
+<hr/>
+<div>
+    <form class="form" asp-action="CreateAccount" method="POST">
+        <p>Add single standard</p>
         <input type="number" id="sp-input" name="sponsorId", placeholder="Sponsor ID" />
         <input type="text" id="nm-input" name="name" placeholder="Account name" />
         <input type="number" id="pref-input" name="placement" placeholder="Placement preference" />
+        <input type="submit" />
+    </form>
+</div>
+<div>
+    <form class="form" asp-action="CreateHierarchy" method="POST">
+        <p>Add single hierarchy</p>
+        <input type="number" id="h-sp-input" name="sponsorId", placeholder="Sponsor ID" />
+        <input type="text" id="h-nm-input" name="name" placeholder="Account name" />
+        <input type="number" id="h-pref-input" name="placement" placeholder="Placement preference" />
         <input type="submit" />
     </form>
 </div>
