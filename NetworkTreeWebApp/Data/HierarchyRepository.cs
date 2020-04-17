@@ -63,8 +63,6 @@ namespace NetworkTreeWebApp.Data
 
         public async Task SeedMultiple(int numOfEntities, string namePrefix)
         {
-            var random = new Random();
-
             var existingIds = await _dbContext.AccountHierarchies
                 .OrderBy(a => a.Id)
                 .Select(a => a.Id)
@@ -84,32 +82,38 @@ namespace NetworkTreeWebApp.Data
 
             for (int i = 0; i < numOfEntities; i++)
             {
-                long uplinkId = existingIds[random.Next(0,existingIds.Count)];
-                long? parentId = ChooseParent(existingIds, countOfchildrenDict);
+                var random = new Random();
 
-                var added = await AddToParent(new AccountHierarchy
+                long uplinkId = existingIds[random.Next(0,existingIds.Count)];
+                //long? parentId = ChooseParent(existingIds, countOfchildrenDict);
+
+                var placementOptions = new int[]{1,2,3,3,3,3,3};    // prefer more autoplacement 
+                var added = await AddNode(new AccountHierarchy
                 {
                     Name = namePrefix + (i+1),
-                    PlacementPreference = random.Next(1,4),
-                    Leg = random.Next(1,3),
+                    PlacementPreference = placementOptions[random.Next(0,placementOptions.Length)],
                     UplinkId = uplinkId,
-                    ParentId = parentId
-                }, parentId, false);
+                }, false);
 
-                if(parentId != null)
+                // if(parentId != null)
+                // {
+                //     if(!countOfchildrenDict.ContainsKey((long)parentId))
+                //     {
+                //         countOfchildrenDict[(long)parentId] = 0;
+                //     }
+                //     countOfchildrenDict[(long)parentId] += 1;
+                // }
+
+                if(i % 1000 == 0)
                 {
-                    if(!countOfchildrenDict.ContainsKey((long)parentId))
-                    {
-                        countOfchildrenDict[(long)parentId] = 0;
-                    }
-                    countOfchildrenDict[(long)parentId] += 1;
+                    System.Console.WriteLine("Processed batch of 1000");
                 }
             }
 
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<AccountHierarchy> AddToParent(AccountHierarchy entity, long? parentId, bool autoCommit = true)
+        private async Task<AccountHierarchy> AddToParent(AccountHierarchy entity, long? parentId, bool autoCommit = true)
         {
             if (!parentId.HasValue)
             {
@@ -124,19 +128,44 @@ namespace NetworkTreeWebApp.Data
                     .Include(x => x.Children)
                     .FirstOrDefaultAsync();
                     
-                var lastSibling = parent.Children.OrderByDescending(x => x.LevelPath).FirstOrDefault();
-
-                SqlHierarchyId child1Level = lastSibling != null ? SqlHierarchyId.Parse(lastSibling.LevelPath) : SqlHierarchyId.Null;
                 SqlHierarchyId parentLevel = SqlHierarchyId.Parse(parent.LevelPath);
-
-                var newLevel = parentLevel.GetDescendant(child1Level, SqlHierarchyId.Null);
-                entity.LevelPath = newLevel.ToString();
-                entity.ParentId = parentId;
-
-                if(entity.UplinkId == null)
+                
+                
+                var lastSibling = parent.Children.OrderByDescending(x => x.LevelPath).FirstOrDefault();
+                
+                string levelPath = null;
+                
+                if(entity.Leg == 2)
                 {
-                    entity.UplinkId = parentId;
+                    if (lastSibling == null)
+                    {
+                        levelPath = parent.LevelPath + "2/";
+                    }
+                    else
+                    {
+                        SqlHierarchyId newLevel = parentLevel.GetDescendant(SqlHierarchyId.Parse(lastSibling.LevelPath), SqlHierarchyId.Null);
+                        levelPath = newLevel.ToString();
+                    }
                 }
+                else if(entity.Leg == 1)   // in any other case - put it on the left
+                {
+                    if (lastSibling == null)
+                    {
+                        levelPath = parent.LevelPath + "1/";
+                    }
+                    else
+                    {
+                        SqlHierarchyId newLevel = parentLevel.GetDescendant(SqlHierarchyId.Null, SqlHierarchyId.Parse(lastSibling.LevelPath));
+                        levelPath = newLevel.ToString();
+                    }
+                }
+                else
+                {
+                    throw new ArgumentOutOfRangeException("Leg", "Invalid value for leg: " + entity.Leg);
+                }
+
+                entity.LevelPath = levelPath;
+                entity.ParentId = parentId;
             }
 
             var result = (await _dbContext.AccountHierarchies.AddAsync(entity)).Entity;
@@ -148,6 +177,91 @@ namespace NetworkTreeWebApp.Data
 
             return result;
         }
+
+        public async Task<AccountHierarchy> AddNode(AccountHierarchy entity, bool autoCommit = true)
+        {
+            var sponsor = await _dbContext.AccountHierarchies
+                .Include(a => a.Children).FirstOrDefaultAsync(a => a.Id == entity.UplinkId);
+            if(sponsor.Children.Count == 0)
+            {
+                entity.ParentId = sponsor.Id;
+                entity.Leg = sponsor.PlacementPreference == 2 ? 2 : 1;
+            }
+            else
+            {
+                Stopwatch sw = Stopwatch.StartNew(); 
+
+                var sponsorTree = await _dbContext.AccountHierarchies
+                    .OrderBy(a => a.LevelPath.Length)
+                    .ThenBy(a => a.LevelPath)
+                    .Where(a => a.LevelPath.StartsWith(sponsor.LevelPath))
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                System.Console.WriteLine("Finding parent for entity " + entity.Name);
+                var parent = await Task.Run(() => FindAvailableNodeInLoop(sponsorTree));
+                System.Console.WriteLine($"Found parent {parent.Name} for entity {entity.Name}, took {sw.ElapsedMilliseconds} ms");
+
+                entity.ParentId = parent.Id;
+                entity.Leg = parent.PlacementPreference;
+            }
+
+            var created = await this.AddToParent(entity, entity.ParentId, autoCommit);
+            return created;
+        }
+
+        public AccountHierarchy FindAvailableNodeInLoop(List<AccountHierarchy> nodes)
+        {
+            if (nodes.Count == 0)
+            {
+                throw new ArgumentException("Cannot process empty list of nodes");
+            }
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                string nodePath = node.LevelPath;
+                string leftPath = nodePath + "1/";
+                string rightPath = nodePath + "2/";
+
+                if(node.PlacementPreference == 1)
+                {
+                    var foundNode = nodes.FirstOrDefault(n => n.LevelPath == leftPath);
+                    if(foundNode == null)
+                    {
+                        return node;
+                    }
+                }
+                else if(node.PlacementPreference == 2)
+                {
+                    var foundNode = nodes.FirstOrDefault(n => n.LevelPath == rightPath);
+                    if(foundNode == null)
+                    {
+                        return node;
+                    }
+                }
+                else
+                {
+                    var foundLeft = nodes.FirstOrDefault(n => n.LevelPath == leftPath);
+                    var foundRight = nodes.FirstOrDefault(n => n.LevelPath == rightPath);
+                    
+                    // if at least one is null, set it as a path
+                    if (foundLeft == null)
+                    {
+                        node.PlacementPreference = 1;
+                        return node;
+                    }
+                    else if (foundRight == null)
+                    {
+                        node.PlacementPreference = 2;
+                        return node;
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("Could not find proper parent");
+        }
+
 
         private long? ChooseParent(IList<long> ids, Dictionary<long, int> parentsDict)
         {

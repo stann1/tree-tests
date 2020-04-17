@@ -27,8 +27,19 @@ namespace NetworkTreeWebApp.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var accounts = await _dbContext.Accounts.ToListAsync();
-            return View(accounts);
+            var accountsFirst = await _dbContext.Accounts.OrderBy(a => a.Id).FirstOrDefaultAsync();
+            var accountsLast = await _dbContext.Accounts.OrderBy(a => a.Id).LastOrDefaultAsync();
+            var accCount = await _dbContext.Accounts.CountAsync();
+
+            var accountsHierarchiesFirst = await _dbContext.AccountHierarchies.OrderBy(a => a.Id).FirstOrDefaultAsync();
+            var accountsHierarchiesLast = await _dbContext.AccountHierarchies.OrderBy(a => a.Id).LastOrDefaultAsync();
+            var hierCount = await _dbContext.AccountHierarchies.CountAsync();
+
+            return View(new IndexViewModel { 
+                Accounts = new List<Account>(){accountsFirst, accountsLast},
+                AccountHierarchies = new List<AccountHierarchy>(){ accountsHierarchiesFirst, accountsHierarchiesLast},
+                CountRegular = accCount,
+                CountHierarchies = hierCount });
         }
 
         [HttpPost]
@@ -68,30 +79,42 @@ namespace NetworkTreeWebApp.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateHierarchy(int? sponsorId, string name, int placement)
+        public async Task<IActionResult> CreateHierarchy(int sponsorId, string name, int placement)
         {
             var newAccountHierarchy = new AccountHierarchy
             {
                 Name = name,
                 PlacementPreference = placement,
-                UplinkId = sponsorId,
-                ParentId = sponsorId
+                UplinkId = sponsorId
             };
             var hierarchyRepo = new HierarchyRepository(_dbContext);
 
-            var entity = await hierarchyRepo.AddToParent(newAccountHierarchy, sponsorId);
-            System.Console.WriteLine($"Created hierarchy: {entity.Name}, level: {entity.LevelPath}");
+            var entity = await hierarchyRepo.AddNode(newAccountHierarchy);
+            System.Console.WriteLine($"Created hierarchy: {entity.Name}, parent: {entity.ParentId}, level: {entity.LevelPath}");
 
             return RedirectToAction("Index");
         }
 
-        public async Task<IActionResult> GetTree()
+        [HttpGet]
+        public IActionResult GetTree()
         {
-            var accounts = await _dbContext.Accounts.OrderBy(a => a.Id).ToListAsync();
+            return View();
+        }
 
-            Account root = accounts[0];
+        [HttpPost]
+        public async Task<IActionResult> GetTree(int? parentId)
+        {
+            Account root = parentId.HasValue ? 
+                await _dbContext.Accounts.FindAsync((long)parentId) :
+                await _dbContext.Accounts.OrderBy(a => a.Id).FirstOrDefaultAsync();
+
+            if (root == null)
+            {
+                return View("GetTree");
+            }
+
             TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
-            var account = treeBuilder.BuildTreeInMemory(root, accounts.Skip(1).ToList());
+            var account = treeBuilder.BuildTreeInMemory(root);
 
             DefaultContractResolver contractResolver = new DefaultContractResolver
             {
@@ -106,19 +129,22 @@ namespace NetworkTreeWebApp.Controllers
             return View("GetTree", json);
         }
 
-        public async Task<IActionResult> GetTreeSql()
+        [HttpPost]
+        public async Task<IActionResult> GetHierarchyTree(int? parentId)
         {
-            var repo = new AccountRepository(_dbContext);
-            Account root = await _dbContext.Accounts.OrderBy(a => a.Id).FirstOrDefaultAsync();
+            AccountHierarchy root = parentId.HasValue ? 
+                await _dbContext.AccountHierarchies.FindAsync((long)parentId) :
+                await _dbContext.AccountHierarchies.OrderBy(a => a.Id).FirstOrDefaultAsync();
 
             TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
-            AccountDto tree = await treeBuilder.BuildTreeInDbRecursive(root.Id);
+            //var account = treeBuilder.BuildHierarchyTreeRecursive(root);
+            var account = treeBuilder.BuildHierarchyTreeRecursive(root);
 
             DefaultContractResolver contractResolver = new DefaultContractResolver
             {
                 NamingStrategy = new CamelCaseNamingStrategy()
             };
-            string json = JsonConvert.SerializeObject(tree, new JsonSerializerSettings
+            string json = JsonConvert.SerializeObject(account, new JsonSerializerSettings
             {
                 ContractResolver = contractResolver,
                 Formatting = Formatting.Indented
@@ -132,23 +158,11 @@ namespace NetworkTreeWebApp.Controllers
             var total = await _dbContext.Accounts.CountAsync();
             var rand = new Random();
             
-            var randAccounts = await _dbContext.Accounts.OrderBy(a => a.Id).Skip(rand.Next(1, total)).ToListAsync();
-            Account root = randAccounts[0];
-            // var accounts = new List<Account>()
-            // {
-            //     new Account(){ Id = 1, Name = "A", TreePlacement = 1, ParentId = null },
-            //     new Account(){ Id = 2, Name = "B", TreePlacement = 1, ParentId = 1 },
-            //     new Account(){ Id = 3, Name = "C", TreePlacement = 1, ParentId = 1 },
-            //     new Account(){ Id = 4, Name = "D", TreePlacement = 1, ParentId = 2 },
-            //     new Account(){ Id = 5, Name = "H", TreePlacement = 1, ParentId = 3 },
-            //     new Account(){ Id = 6, Name = "K", TreePlacement = 1, ParentId = 3 },
-            //     new Account(){ Id = 7, Name = "F", TreePlacement = 1, ParentId = 2 },
-            //     new Account(){ Id = 8, Name = "G", TreePlacement = 1, ParentId = 4 },
-            //     new Account(){ Id = 9, Name = "V", TreePlacement = 1, ParentId = 4 },
-            //     new Account(){ Id = 10, Name = "L", TreePlacement = 1, ParentId = 6 },
-            // };
+            var selection = _dbContext.Accounts.OrderBy(a => a.Id).Skip(rand.Next(0, total));
+            Account root = await selection.FirstOrDefaultAsync();
+            
             TreeBuilder treeBuilder = new TreeBuilder(_dbContext);
-            var account = treeBuilder.BuildTreeInMemory(root, randAccounts.Skip(1).ToList());
+            var account = treeBuilder.BuildTreeInMemory(root);
 
             DefaultContractResolver contractResolver = new DefaultContractResolver
             {
@@ -160,8 +174,8 @@ namespace NetworkTreeWebApp.Controllers
                 Formatting = Formatting.Indented
             });
             //Console.WriteLine(json);
-            ViewData["total"] = randAccounts.Count;
-            ViewData["first"] = randAccounts[0].Id;
+            ViewData["total"] = await selection.CountAsync();
+            ViewData["first"] = root.Id;
             return View("GetTree", json);
         }
 

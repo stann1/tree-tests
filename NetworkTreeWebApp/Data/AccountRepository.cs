@@ -38,8 +38,8 @@ namespace NetworkTreeWebApp.Data
                 System.Console.WriteLine("Inserting next: " + result);
                 
                 processed += result;
-                next += result;
                 remaining = numOfEntities - processed;
+                next += Math.Min(result, remaining);
             }
 
             System.Console.WriteLine("processed: " + processed);
@@ -75,31 +75,35 @@ namespace NetworkTreeWebApp.Data
 
             for (int i = 0; i < numOfEntities; i++)
             {
-                long? parentId = ChooseParent(existingIds, countOfchildrenDict);
+                //long? parentId = ChooseParent(existingIds, countOfchildrenDict);
                 long uplinkId = existingIds[random.Next(0,existingIds.Count)];
                 
                 accounts.Add(new Account
                 {
                     Name = namePrefix + (i+1),
                     PlacementPreference = random.Next(1,4),
-                    Leg = random.Next(1,3),
+                    //Leg = random.Next(1,3),
                     UplinkId = uplinkId,
-                    ParentId = parentId
+                    //ParentId = parentId
                 });
                 
-                if(parentId != null)
-                {
-                    if(!countOfchildrenDict.ContainsKey((long)parentId))
-                    {
-                        countOfchildrenDict[(long)parentId] = 0;
-                    }
-                    countOfchildrenDict[(long)parentId] += 1;
-                }
+                // if(parentId != null)
+                // {
+                //     if(!countOfchildrenDict.ContainsKey((long)parentId))
+                //     {
+                //         countOfchildrenDict[(long)parentId] = 0;
+                //     }
+                //     countOfchildrenDict[(long)parentId] += 1;
+                // }
             }
 
             if(accounts.Count > 0)
             {
-                await _dbContext.AddRangeAsync(accounts);
+                foreach (var item in accounts)
+                {
+                    await this.AddNode(item);
+                }
+                //await _dbContext.AddRangeAsync(accounts);
                 await _dbContext.SaveChangesAsync();
             }
 
@@ -118,7 +122,7 @@ namespace NetworkTreeWebApp.Data
             {
                 Stopwatch sw = Stopwatch.StartNew(); 
                 System.Console.WriteLine("Finding parent for entity " + entity.Name);
-                var parent = await FindAvailableNodeRecursive(sponsor.Children, sponsor.PlacementPreference);
+                var parent = await FindAvailableNodeRecursive(sponsor.Children, sponsor);
                 System.Console.WriteLine($"Found parent {parent.Name} for entity {entity.Name}, took {sw.ElapsedMilliseconds} ms");
 
                 entity.ParentId = parent.Id;
@@ -130,54 +134,70 @@ namespace NetworkTreeWebApp.Data
             return created.Id;
         }
 
-        public async Task<Account> FindAvailableNodeRecursive(List<Account> nodes, int placementPreference)
+        public async Task<Account> FindAvailableNodeRecursive(List<Account> nodes, Account root)
         {
-            if (nodes.Count == 1)
+            if (nodes.Count == 0)
             {
-                return nodes[0];
+                return root;
             }
+
+            //System.Console.WriteLine("Checking node " + root.Id);
             
             Account leftLeg = null;
             Account rightLeg = null;
 
             var leftNode = nodes.FirstOrDefault(n => n.Leg == 1);
-            var leftChildren = await _dbContext.Accounts.Where(a => a.ParentId == leftNode.Id).ToListAsync();
-            if(leftChildren.Count == 0)
+            if(leftNode == null && root.PlacementPreference == 1)
             {
-                leftLeg = leftNode;
-                if(placementPreference == 1)
-                {
-                    return leftLeg;
-                }
-            }
-            else
-            {
-                leftLeg = await FindAvailableNodeRecursive(leftChildren, nodes[0].PlacementPreference);
+                return root;
             }
 
-            var rightNode = nodes.FirstOrDefault(n => n.Leg == 2);
-            var rightChildren = await _dbContext.Accounts.Where(a => a.ParentId == rightNode.Id).ToListAsync();
-            if(rightChildren.Count == 0)
+            var leftChildren = leftNode != null ? await _dbContext.Accounts.AsNoTracking().Where(a => a.ParentId == leftNode.Id).ToListAsync() : new List<Account>();
+            if(leftNode != null)
             {
-                rightLeg = rightNode;
-                if(placementPreference == 2)
+                if(root.PlacementPreference == 1 && leftChildren.Count == 0)
                 {
-                    return rightLeg;
+                    return leftNode;
+                }
+                else
+                {
+                    leftLeg = await FindAvailableNodeRecursive(leftChildren, leftNode);
                 }
             }
-            else
+            
+
+            var rightNode = nodes.FirstOrDefault(n => n.Leg == 2);
+            if(rightNode == null && root.PlacementPreference == 1)
             {
-                rightLeg = await FindAvailableNodeRecursive(rightChildren, nodes[1].PlacementPreference);
+                return root;
+            }
+
+            var rightChildren = rightNode != null ? await _dbContext.Accounts.AsNoTracking().Where(a => a.ParentId == rightNode.Id).ToListAsync() : new List<Account>();
+            if(rightNode != null)
+            {
+                if(root.PlacementPreference == 2 && rightChildren.Count == 0)
+                {
+                    return rightNode;
+                }
+                else
+                {
+                    rightLeg = await FindAvailableNodeRecursive(rightChildren, rightNode);
+                }
+            }            
+
+            if(leftLeg == null && rightLeg == null)
+            {
+                return root;
             }
             
-            switch (placementPreference)
+            switch (root.PlacementPreference)
             {
-                case 1: return leftLeg;
-                case 2: return rightLeg;
+                case 1: return leftLeg != null ? leftLeg : root;
+                case 2: return rightLeg != null ? rightLeg: root;
                 case 3:
-                    return leftLeg.Id < rightLeg.Id ? leftLeg : rightLeg;            
+                    return leftLeg != null ? leftLeg : rightLeg;            
                 default:
-                    return leftLeg.Id < rightLeg.Id ? leftLeg : rightLeg;
+                    return leftLeg != null ? leftLeg : rightLeg;
             }
         }
 

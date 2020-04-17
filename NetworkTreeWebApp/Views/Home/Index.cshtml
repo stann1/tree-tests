@@ -1,4 +1,4 @@
-﻿@model System.Collections.Generic.IList<NetworkTreeWebApp.Data.Account>
+﻿@model NetworkTreeWebApp.Models.IndexViewModel
 @{
     ViewData["Title"] = "Home Page";
 }
@@ -40,12 +40,21 @@
     </form>
 </div>
 <div>
-    @if(Model.Count > 0)
+    @if(Model.Accounts.Count > 0)
     {
-        <h4>Stats</h4>
-        <p>Total accounts: @Model.Count</p>
-        <p>First: (id)@Model[0].Id -- (name)@Model[0].Name -- (parent)@Model[0].ParentId --</p>
-        <p>Last: (id)@Model[Model.Count-1].Id -- (name)@Model[Model.Count-1].Name -- (parent)@Model[Model.Count-1].ParentId</p>
+        <h4>Stats regular</h4>
+        <p>Total accounts: @Model.CountRegular</p>
+        <p>First: (id)@Model.Accounts[0].Id -- (name)@Model.Accounts[0].Name -- (parent)@Model.Accounts[0].ParentId --</p>
+        <p>Last: (id)@Model.Accounts[Model.Accounts.Count-1].Id -- (name)@Model.Accounts[Model.Accounts.Count-1].Name -- (parent)@Model.Accounts[Model.Accounts.Count-1].ParentId</p>
+    }
+</div>
+<div>
+    @if(Model.AccountHierarchies.Count > 0)
+    {
+        <h4>Stats hierarchies</h4>
+        <p>Total accounts: @Model.CountHierarchies</p>
+        <p>First: (id)@Model.AccountHierarchies[0].Id -- (name)@Model.AccountHierarchies[0].Name -- (parent)@Model.AccountHierarchies[0].ParentId --</p>
+        <p>Last: (id)@Model.AccountHierarchies[Model.AccountHierarchies.Count-1].Id -- (name)@Model.AccountHierarchies[Model.AccountHierarchies.Count-1].Name -- (parent)@Model.AccountHierarchies[Model.AccountHierarchies.Count-1].ParentId</p>
     }
 </div>
 

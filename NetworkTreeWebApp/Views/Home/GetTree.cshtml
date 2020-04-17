@@ -4,6 +4,20 @@
 }
 
 <h2 class="display-4">Accounts tree</h2>
+<div>
+    <form class="form" asp-action="GetHierarchyTree" method="POST">
+        <label>Select hierarchy account id (optional)</label>
+        <input type="number" id="hp-input" name="parentId", placeholder="Parent ID" />
+        <input type="submit" />
+    </form>
+</div>
+<div>
+    <form class="form" asp-action="GetTree" method="POST">
+        <label>Select regular account id (optional)</label>
+        <input type="number" id="p-input" name="parentId", placeholder="Parent ID" />
+        <input type="submit" />
+    </form>
+</div>
 @if(ViewData["total"] != null)
 {
     <h4>for @ViewData["total"] accounts, starting at @ViewData["first"]</h4>

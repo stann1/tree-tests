@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.SqlServer.Types;
 using NetworkTreeWebApp.Data;
 using NetworkTreeWebApp.Models;
 
@@ -17,15 +18,16 @@ namespace NetworkTreeWebApp.Utils
         {
             this._dbContext = dbContext;
         }
-        public AccountDto BuildTreeInMemory(Account rootNode, List<Account> accounts)
+        public AccountDto BuildTreeInMemory(Account rootNode)
         {
-            var dtos = accounts.Select(AccountDto.MapToFromEntity).ToList();
+            var dtos = _dbContext.Accounts.OrderBy(a => a.Id).Where(a => a.Id > rootNode.Id).Select(AccountDto.MapToFromEntity).ToList();
+            System.Console.WriteLine($"Building for {rootNode.Name}, with {dtos.Count} entities");
 
             int counter = 0;
             Stopwatch sw = Stopwatch.StartNew();
             
             var root = AccountDto.MapToFromEntity(rootNode);
-            var childNodes = GetChildNodes(root, dtos.Where(n => n.Id != root.Id).ToList(), new Dictionary<long, bool>(), ref counter);
+            var childNodes = GetChildNodes(root, dtos, new Dictionary<long, bool>(), ref counter);
             
             sw.Stop();
             System.Console.WriteLine($"Memory - Total iterations: {counter}. Took {sw.ElapsedMilliseconds} ms");
@@ -97,6 +99,61 @@ namespace NetworkTreeWebApp.Utils
             }
 
             return target;
+        }
+
+        public AccountDto BuildHierarchyTreeRecursive(AccountHierarchy rootNode)
+        {
+            var dtos = _dbContext.AccountHierarchies
+                .OrderBy(a => a.LevelPath.Length).ThenBy(a => a.LevelPath)
+                .Where(a => a.LevelPath.StartsWith(rootNode.LevelPath))
+                //.Take(10000)   // temp for testing
+                .Select(AccountDto.MapToFromHierarchyEntity).ToList();
+            
+            System.Console.WriteLine($"Building for {rootNode.Name}, with {dtos.Count} entities");
+            
+            var bottom = dtos.Last();
+            System.Console.WriteLine($"Bottom is {bottom.Id} with level {bottom.Level}, hierarchy depth {bottom.Depth}");
+
+            int counter = 0;
+            Stopwatch sw = Stopwatch.StartNew();
+
+            var levels = bottom.Level.Split("/", StringSplitOptions.RemoveEmptyEntries);
+            // System.Console.WriteLine(levels.Length);
+
+            AccountDto root = AccountDto.MapToFromHierarchyEntity(rootNode);
+            root.Nodes = SetChildNodesOnDepthRecursive(root.Depth + 1, bottom.Depth, root, dtos, ref counter);
+
+            sw.Stop();
+            System.Console.WriteLine($"Hierarchy loop - Total iterations: {counter}. Took {sw.ElapsedMilliseconds} ms");
+
+            return root;
+        }
+
+        private List<AccountDto> SetChildNodesOnDepthRecursive(int depth, int maxDepth, AccountDto node, List<AccountDto> allNodes, ref int counter)
+        {
+            counter++;
+            if(counter % 1000 == 0)
+            {
+                System.Console.WriteLine("Processed recursive calls: " + counter);
+            }
+            
+            var children = new List<AccountDto>();
+            if(depth > maxDepth)
+            {
+                return children;
+            }
+
+
+            foreach (var item in allNodes.Where(n => n.Depth == depth))
+            {
+                if(item.ParentId == node.Id)
+                {
+                    item.Nodes = SetChildNodesOnDepthRecursive(depth + 1, maxDepth, item, allNodes, ref counter);
+                    children.Add(item);
+                }
+            }
+
+            return children;
         }
     }
 }
