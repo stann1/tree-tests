@@ -35,6 +35,9 @@ namespace NetworkTreeWebApp.Controllers
             var accountsHierarchiesLast = await _dbContext.AccountHierarchies.OrderBy(a => a.Id).LastOrDefaultAsync();
             var hierCount = await _dbContext.AccountHierarchies.CountAsync();
 
+            var treeBuilder = new TreeBuilder(_dbContext);
+            treeBuilder.CalculateBonuses(accountsHierarchiesFirst);
+
             return View(new IndexViewModel { 
                 Accounts = new List<Account>(){accountsFirst, accountsLast},
                 AccountHierarchies = new List<AccountHierarchy>(){ accountsHierarchiesFirst, accountsHierarchiesLast},

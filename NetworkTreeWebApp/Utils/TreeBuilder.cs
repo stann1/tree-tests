@@ -155,5 +155,60 @@ namespace NetworkTreeWebApp.Utils
 
             return children;
         }
+
+        public void CalculateBonuses(AccountHierarchy rootNode)
+        {
+            // var entities = new List<AccountHierarchy>()
+            // {
+            //     new AccountHierarchy(){ Id = 1, Name = "A", PlacementPreference = 3, ParentId = null, UplinkId = null, LevelPath = "/" },
+            //     new AccountHierarchy(){ Id = 2, Name = "B", PlacementPreference = 2, ParentId = 1, UplinkId = 1, LevelPath = "/1/" },
+            //     new AccountHierarchy(){ Id = 3, Name = "C", PlacementPreference = 3, ParentId = 1, UplinkId = 1, LevelPath = "/2/" },
+            //     new AccountHierarchy(){ Id = 4, Name = "D", PlacementPreference = 3, ParentId = 2, UplinkId = 1, LevelPath = "/1/1/" },
+            //     new AccountHierarchy(){ Id = 5, Name = "H", PlacementPreference = 1, ParentId = 3, UplinkId = 1, LevelPath = "/2/1/" },
+            //     new AccountHierarchy(){ Id = 6, Name = "K", PlacementPreference = 3, ParentId = 3, UplinkId = 1, LevelPath = "/2/2/" },
+            //     new AccountHierarchy(){ Id = 7, Name = "F", PlacementPreference = 2, ParentId = 2, UplinkId = 1, LevelPath = "/1/2/" },
+            //     new AccountHierarchy(){ Id = 8, Name = "G", PlacementPreference = 3, ParentId = 4, UplinkId = 1, LevelPath = "/1/1/1/" },
+            //     new AccountHierarchy(){ Id = 9, Name = "V", PlacementPreference = 3, ParentId = 4, UplinkId = 1, LevelPath = "/1/1/2/" },
+            //     new AccountHierarchy(){ Id = 10, Name = "L", PlacementPreference = 1, ParentId = 6, UplinkId = 1, LevelPath = "/2/2/1/" },
+            //     new AccountHierarchy(){ Id = 11, Name = "O", PlacementPreference = 3, ParentId = 10, UplinkId = 1, LevelPath = "/2/2/1/1/" }
+            // };
+            Stopwatch sw = Stopwatch.StartNew();
+            var entities = _dbContext.AccountHierarchies
+                .OrderBy(a => a.LevelPath.Length).ThenBy(a => a.LevelPath)
+                .Where(a => a.LevelPath.StartsWith(rootNode.LevelPath));
+
+            var dtos = entities.Select(AccountDto.MapToFromHierarchyEntity).ToList();
+            System.Console.WriteLine($"Start processing {dtos.Count} items.");
+
+            Dictionary<string,long> pathBonus = new Dictionary<string, long>();
+            for (int i = dtos.Count - 1; i >= 0; i--)
+            {
+                var entity = dtos[i];
+                long bonus = entity.Id;
+                if(pathBonus.ContainsKey(entity.Level))
+                {
+                    bonus += pathBonus[entity.Level];
+                }
+
+                var parentPathNode = SqlHierarchyId.Parse(entity.Level).GetAncestor(1);
+                string parentPath = parentPathNode.ToString();
+
+                if(!pathBonus.ContainsKey(parentPath))
+                {
+                    pathBonus[parentPath] = 0;
+                }
+
+                pathBonus[parentPath] += bonus;
+
+                if (i % 1000 == 0)
+                {
+                    System.Console.WriteLine($"Processed next 1000 of {i} remaining");
+                }
+
+                //System.Console.WriteLine($"Bonus for {entity.Text}: {bonus}");
+            }
+
+            System.Console.WriteLine($"Finished in {sw.ElapsedMilliseconds} ms");
+        }
     }
 }
